@@ -1,0 +1,718 @@
+// Software I2C connections
+sbit Soft_I2C_Scl at RA4_bit;
+sbit Soft_I2C_Sda at RA5_bit;
+sbit Soft_I2C_Scl_Direction at TRISA4_bit;
+sbit Soft_I2C_Sda_Direction at TRISA5_bit;
+// End Software I2C connections
+
+unsigned char sec, hours, minutes, week_day, month_day, month, year,
+		delay_counter;
+
+volatile unsigned char time_select, digit_select;
+
+volatile bit delay_flag, dummy_bit, increment_flag;
+
+unsigned char bcd_to_seg(unsigned char bcd) {
+
+	switch (bcd) {
+
+	case 0: {
+		return 0x03;
+	}
+	case 1: {
+		return 0x9F;
+	}
+	case 2: {
+		return 0x25;
+	}
+	case 3: {
+		return 0x0D;
+	}
+	case 4: {
+		return 0x99;
+	}
+	case 5: {
+		return 0x49;
+	}
+	case 6: {
+		return 0x41;
+	}
+	case 7: {
+		return 0x1F;
+	}
+	case 8: {
+		return 0x01;
+	}
+	case 9: {
+		return 0x09;
+	}
+	case 'y': {
+		return 0x89;
+	}
+	case 'A': {
+		return 0x11;
+	}
+	case 'd': {
+		return 0x85;
+	}
+	default: {
+		return 0xFD;
+	}
+	}
+}
+
+void flash_seg(unsigned char select) {
+
+	switch (select) {
+
+	// Flash seconds data to display segments
+	case 1: {
+
+		PORTB = 0xEF;
+		PORTC = bcd_to_seg(sec & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = bcd_to_seg(sec >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		break;
+
+	}
+		// Flash hours/minutes data to display segments
+	case 2: {
+
+		PORTB = 0xEF;
+		PORTC = (digit_select == 1) ?
+				bcd_to_seg(minutes & 0x0F) & 0xFE : bcd_to_seg(minutes & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = (digit_select == 2) ?
+				bcd_to_seg(minutes >> 4) & 0xFE : bcd_to_seg(minutes >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = (digit_select == 3) ?
+				bcd_to_seg(hours & 0x0F) & 0xFE : bcd_to_seg(hours & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = (digit_select == 4) ?
+				bcd_to_seg(hours >> 4) & 0xFE : bcd_to_seg(hours >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		break;
+
+	}
+		// Flash weekday data to display segments
+	case 3: {
+
+		PORTB = 0xEF;
+		PORTC = (digit_select == 1) ?
+				bcd_to_seg(week_day) & 0xFE : bcd_to_seg(week_day);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = bcd_to_seg('y');
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = bcd_to_seg('A');
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = bcd_to_seg('d');
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		break;
+
+	}
+		// Flash month and date data to display segments
+	case 4: {
+
+		PORTB = 0xEF;
+		PORTC = (digit_select == 1) ?
+				bcd_to_seg(month & 0x0F) & 0xFE : bcd_to_seg(month & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = (digit_select == 2) ?
+				bcd_to_seg(month >> 4) & 0xFE : bcd_to_seg(month >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = (digit_select == 3) ?
+				bcd_to_seg(month_day & 0x0F) & 0xFE :
+				bcd_to_seg(month_day & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = (digit_select == 4) ?
+				bcd_to_seg(month_day >> 4) & 0xFE : bcd_to_seg(month_day >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		break;
+
+	}
+		// Flash year data to display segments
+	case 5: {
+
+		PORTB = 0xEF;
+		PORTC = (digit_select == 1) ?
+				bcd_to_seg(year & 0x0F) & 0xFE : bcd_to_seg(year & 0x0F);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = (digit_select == 2) ?
+				bcd_to_seg(year >> 4) & 0xFE : bcd_to_seg(year >> 4);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = bcd_to_seg(0);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = bcd_to_seg(2);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		break;
+
+	}
+	default: {
+
+		PORTB = 0xEF;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xDF;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xBF;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0x7F;
+		PORTC = bcd_to_seg(0xFF);
+		Delay_us(20);
+		PORTC = 0xFF;
+		PORTB = 0xFF;
+
+		return;
+	}
+
+	}
+
+}
+
+void read_time(unsigned char select) {
+
+	switch (select) {
+
+	// Read seconds data from RTC
+	case 1: {
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD0);
+		Soft_I2C_Write(0x00);
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD1);
+		sec = Soft_I2C_Read(0);
+		Soft_I2C_Stop();
+
+		flash_seg(select);
+
+		break;
+
+	}
+		// Read minutes and hours data from RTC
+	case 2: {
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD0);
+		Soft_I2C_Write(0x01);
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD1);
+		minutes = Soft_I2C_Read(1);
+		hours = Soft_I2C_Read(0);
+		Soft_I2C_Stop();
+
+		flash_seg(select);
+
+		break;
+
+	}
+		// Read weekday data from RTC
+	case 3: {
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD0);
+		Soft_I2C_Write(0x03);
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD1);
+		week_day = Soft_I2C_Read(0);
+		Soft_I2C_Stop();
+
+		flash_seg(select);
+
+		break;
+
+	}
+		// Read month and month day data from RTC
+	case 4: {
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD0);
+		Soft_I2C_Write(0x04);
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD1);
+		month_day = Soft_I2C_Read(1);
+		month = Soft_I2C_Read(0);
+		Soft_I2C_Stop();
+
+		flash_seg(select);
+
+		break;
+
+	}
+		// Read year data from RTC
+	case 5: {
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD0);
+		Soft_I2C_Write(0x06);
+
+		flash_seg(select);
+
+		Soft_I2C_Start();
+		Soft_I2C_Write(0xD1);
+		year = Soft_I2C_Read(0);
+		Soft_I2C_Stop();
+
+		flash_seg(select);
+		break;
+
+	}
+	default: {
+
+		flash_seg(select);
+
+		return;
+	}
+
+	}
+}
+
+void increment_digit(unsigned char time, unsigned char digit) {
+
+	switch (time) {
+
+	// Minutes and hours data -All digits editing enabled
+	case 2: {
+
+		switch (digit) {
+
+		case 1: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x01);
+			Soft_I2C_Write(
+					(minutes & 0x0F) < 9 ? minutes + 0x01 : minutes & 0xF0);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 2: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x01);
+			Soft_I2C_Write(minutes >> 4 < 5 ? minutes + 0x10 : minutes & 0x0F);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 3: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x02);
+			Soft_I2C_Write(
+					(hours & 0x0F) < 3 ? hours + 0x01 :
+					hours >> 4 == 2 ? hours & 0xF0 :
+					(hours & 0x0F) < 9 ? hours + 0x01 : hours & 0xF0);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 4: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x02);
+			Soft_I2C_Write(hours >> 4 < 2 ? hours + 0x10 : hours & 0x0F);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		default: {
+
+			break;
+		}
+
+		}
+
+		break;
+
+	}
+		// Weekday data -Single digit editing enabled
+	case 3: {
+
+		switch (digit) {
+
+		case 1: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x03);
+			Soft_I2C_Write(week_day < 7 ? week_day + 0x01 : 0x01);
+			Soft_I2C_Stop();
+
+			break;
+		}
+
+		default: {
+
+			break;
+		}
+
+		}
+
+		break;
+
+	}
+
+		// Month and month day data -All digits editing enabled
+	case 4: {
+
+		switch (digit) {
+
+		case 1: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x05);
+			Soft_I2C_Write(
+					(month & 0x0F) < 2 ? month + 0x01 :
+					month >> 4 == 1 ? month & 0xF0 :
+					(month & 0x0F) < 9 ? month + 0x01 : month & 0xF0);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 2: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x05);
+			Soft_I2C_Write(month >> 4 < 1 ? month + 0x10 : month & 0x0F);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 3: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x04);
+			Soft_I2C_Write(
+					(month_day & 0x0F) < 1 ? month_day + 0x01 :
+					month_day >> 4 == 3 ? month_day & 0xF0 :
+					(month_day & 0x0F) < 9 ?
+							month_day + 0x01 : month_day & 0xF0);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 4: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x04);
+			Soft_I2C_Write(
+					month_day >> 4 < 3 ? month_day + 0x10 : month_day & 0x0F);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		default: {
+
+			break;
+		}
+
+		}
+
+		break;
+
+	}
+		// Year data -Two digits editing enabled
+	case 5: {
+
+		switch (digit) {
+
+		case 1: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x06);
+			Soft_I2C_Write((year & 0x0F) < 9 ? year + 0x01 : month & 0xF0);
+			Soft_I2C_Stop();
+
+			break;
+		}
+		case 2: {
+
+			Soft_I2C_Start();
+			Soft_I2C_Write(0xD0);
+			Soft_I2C_Write(0x05);
+			Soft_I2C_Write(year >> 4 < 9 ? year + 0x10 : year & 0x0F);
+			Soft_I2C_Stop();
+
+			break;
+		}
+
+		default: {
+
+			break;
+		}
+
+		}
+
+		break;
+
+	}
+	default: {
+
+		break;
+	}
+
+	}
+
+}
+
+void main(void) {
+
+	// Control inputs on port A
+	TRISA = 0x06;
+
+	// Digit multiplexing transistors output on port B
+	TRISB = 0x00;
+
+	// Segments data output on port C
+	TRISC = 0x00;
+
+	// Define no analog I/O
+	ANSEL = 0x00;
+	ANSELH = 0x00;
+
+	// No internal pullups
+	WPUA = 0x00;
+
+	// Interrupt on change on pin 18 RA1
+	IOCA = 0x02;
+
+	// Init software I2C
+	Soft_I2C_Init();
+
+	// Restart clock and reset seconds to 0
+	Soft_I2C_Start();
+	Soft_I2C_Write(0xD0);
+	Soft_I2C_Write(0x00);
+	Soft_I2C_Write(0x00);
+	Soft_I2C_Stop();
+
+	// Start SQWOUT 1Hz out pulse
+	Soft_I2C_Start();
+	Soft_I2C_Write(0xD0);
+	Soft_I2C_Write(0x07);
+	Soft_I2C_Write(0x10);
+	Soft_I2C_Stop();
+
+	// Init variables
+	time_select = 1;
+	digit_select = 0;
+	delay_counter = 0;
+	delay_flag = 0;
+	increment_flag = 0;
+
+	// Init output ports
+	PORTC = 0x00;
+	PORTB = 0xFF;
+
+	// Enable global interrupts, pin 17 RA2 interrupts and interrupts on change, clear interrupt flags
+	INTCON = 0x98;
+
+	while (1) {
+
+		read_time(time_select);
+
+		// Increment a digit if flag is set by controls
+		if (increment_flag) {
+
+			//increment_digit(time_select, digit_select);
+
+			// Reset request flag
+			increment_flag = 0;
+
+		}
+
+		if (delay_flag) {
+
+			delay_counter++;
+
+			// Reset interrupts after some delay
+			if (delay_counter == 0x80) {
+
+				// Reset counter
+				delay_counter = 0x00;
+
+				// Reset flag
+				delay_flag = 0;
+
+				// Reset interrupts
+				INTCON = 0x98;
+			}
+
+		}
+	}
+
+}
+
+void interrupt(void) {
+
+	if (INTCON.INTF) {
+
+		// Switch between the displayed time data on segments
+		if (!digit_select) {
+
+			time_select++;
+
+			if (time_select == 6)
+				time_select = 1;
+		}
+		// Or request increment for selected digit for editing
+		else {
+
+			increment_flag = 1;
+		}
+
+	}
+	// Enter digit editing mode to set the time
+	else if (INTCON.RABIF) {
+
+		// Read from port to clear IOC flag
+		dummy_bit = PORTA.RA1;
+
+		switch (time_select) {
+
+		// Minutes and hours data -All digits editing enabled
+		case 2: {
+
+			digit_select++;
+
+			if (digit_select == 5)
+				digit_select = 0;
+
+			break;
+
+		}
+			// Weekday data -Single digit editing enabled
+		case 3: {
+
+			digit_select++;
+
+			if (digit_select == 2)
+				digit_select = 0;
+
+			break;
+
+		}
+			// Month and month day data -All digits editing enabled
+		case 4: {
+
+			digit_select++;
+
+			if (digit_select == 5)
+				digit_select = 0;
+
+			break;
+
+		}
+			// Year data -Two digits editing enabled
+		case 5: {
+
+			digit_select++;
+
+			if (digit_select == 3)
+				digit_select = 0;
+
+			break;
+
+		}
+		default: {
+
+			break;
+		}
+
+		}
+
+	}
+
+	// Disable interrupts
+	INTCON = 0x00;
+
+	// Raise flag for interrupt delay
+	delay_flag = 1;
+}
